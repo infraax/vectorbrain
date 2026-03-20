@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build release binary (linux/amd64)
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o bin/vectorbrain-linux-amd64 ./cmd/vectorbrain/
+          GOOS=linux GOARCH=arm64 go build -o bin/vectorbrain-linux-arm64 ./cmd/vectorbrain/
+          GOOS=darwin GOARCH=arm64 go build -o bin/vectorbrain-darwin-arm64 ./cmd/vectorbrain/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            bin/vectorbrain-linux-amd64
+            bin/vectorbrain-linux-arm64
+            bin/vectorbrain-darwin-arm64
+          generate_release_notes: true
+          body: |
+            See [MACHINA_ANIMA.md](https://github.com/infraax/vectorbrain/blob/main/MACHINA_ANIMA.md) for project philosophy.
+            See [README.md](https://github.com/infraax/vectorbrain/blob/main/README.md) for setup instructions.

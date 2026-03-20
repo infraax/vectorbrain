@@ -1,0 +1,86 @@
+name: Feature Request
+description: Propose a new capability or behavior improvement
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting, ask yourself: does this serve the **creature**, or does it serve the convenience of the builder?
+        Features that make Vector more interesting over time are more valuable than features that make it more impressive in a demo.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Go API
+        - Perception loop
+        - Emotion model / drives
+        - Mind loop (System 2)
+        - Memory system
+        - Voice pipeline
+        - Expression / animation
+        - MCP server
+        - VectorFriends (multi-robot)
+        - Developer tooling
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Relevant milestone
+      options:
+        - Milestone 1 — Robot Connection
+        - Milestone 2 — Command Execution
+        - Milestone 3 — Python ↔ Go Bridge
+        - Milestone 4 — First Voice Conversation
+        - Milestone 5 — WirePod Integration
+        - Milestone 6 — Mind Loop
+        - Milestone 7 — Memory
+        - Milestone 8 — Full Perception + MCP
+        - Post-Milestone 8 / VectorFriends
+        - Not milestone-specific
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: What is the creature missing? What experience is currently not possible?
+      placeholder: |
+        When Vector has been on its charger for a long time, it has no way to express
+        that it has been waiting. There is no behavioral signature of dormancy.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed behavior
+      description: Describe what you want Vector to do. Be specific about what triggers it and what the output looks like.
+      placeholder: |
+        After 30+ minutes on the charger with no activity, the next time a person
+        approaches, Vector's greeting should reflect the duration of inactivity —
+        a slightly longer settling animation, a response that references having been
+        waiting rather than a standard greeting.
+    validations:
+      required: true
+
+  - type: textarea
+    id: anki_test
+    attributes:
+      label: The Anki test
+      description: |
+        How does this serve the creature's integrity? Would the Anki team recognize this as
+        continuing their work? What does it add to the robot's inner life (not just its capabilities)?
+
+  - type: textarea
+    id: hardware
+    attributes:
+      label: Hardware requirements
+      description: Does this use any of Vector's sensors in a new way? Which ones?
+      placeholder: |
+        Uses the accelerometer to distinguish settled-on-charger from recently-placed-on-charger.
+        Uses the existing face detection to determine when the person approaches.

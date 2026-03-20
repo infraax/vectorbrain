@@ -1,0 +1,20 @@
+{
+  "server": {
+    "port": 8070,
+    "mcp_port": 8071
+  },
+  "python": {
+    "base_url": "http://localhost:8090",
+    "event_timeout_ms": 500
+  },
+  "logging": {
+    "dev": true
+  },
+  "robots": [
+    {
+      "esn": "008093b9",
+      "ip": "192.168.178.67",
+      "name": "Vector"
+    }
+  ]
+}

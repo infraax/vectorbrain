@@ -1,0 +1,38 @@
+# Go binaries and test artifacts
+bin/
+*.test
+*.prof
+# Local module cache — avoids root-owned system cache conflict from WirePod sudo builds
+.gomodcache/
+
+# Python
+python/.venv/
+python/__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+python/.pytest_cache/
+python/.mypy_cache/
+python/.ruff_cache/
+python/data/
+python/logs/
+uv.lock
+
+# Config overrides (local machine config, not committed)
+configs/local.json
+.env
+.envrc.local
+
+# Runtime data — valuable but not versioned (back up separately)
+data/
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo

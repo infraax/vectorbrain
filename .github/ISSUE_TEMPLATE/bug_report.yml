@@ -1,0 +1,92 @@
+name: Bug Report
+description: Something is broken or behaving unexpectedly
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill out all sections — especially the logs. Bugs without logs take significantly longer to diagnose.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which part of VectorBrain is affected?
+      options:
+        - Go API (vectorbrain binary)
+        - Python mind (perception/cognition/memory/expression)
+        - Voice pipeline
+        - Event stream / perception loop
+        - Memory (episodic or semantic)
+        - Mind loop (System 2)
+        - Robot connection / SDK
+        - WirePod integration
+        - CI / build system
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: milestone
+    attributes:
+      label: Milestone
+      description: Which milestone is this affecting? (e.g. Milestone 1, Milestone 3)
+      placeholder: "Milestone X"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened
+      description: What did you expect to happen, and what actually happened?
+      placeholder: |
+        Expected: Vector greets me when I walk in front of it
+        Actual: No response. No log entry in Python perception logs.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start vectorbrain Go binary
+        2. Start Python mind
+        3. Walk in front of robot
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Go version, Python version, Ollama models, WirePod version, robot firmware
+      placeholder: |
+        Go: 1.23.x
+        Python: 3.11.x
+        Ollama models: llama3.2:3b, llama3.1:8b-instruct-q4_K_M
+        WirePod: vX.X.X
+        Robot firmware: X.X.X.XXXX
+        OS: macOS 15 / Raspberry Pi OS / Ubuntu 24.04
+    validations:
+      required: true
+
+  - type: textarea
+    id: probe_output
+    attributes:
+      label: Probe report
+      description: Output of `just probe` or `python/tools/probe.py`, if available
+      render: json
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Go API logs, Python mind logs, and/or event stream excerpt. Please include timestamps.
+      render: shell
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else that seems relevant
