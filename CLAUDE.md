@@ -21,12 +21,15 @@ If you are uncertain about any implementation decision, the tiebreaker is: *what
 ## Session Start Protocol (mandatory)
 
 1. Read `MEMORY.md` if present, or call `get_context` if the Claude Diary MCP is available
-2. State the goal for this session in one sentence
-3. Identify which files you will touch and why
-4. Run existing tests to confirm nothing is broken: `make test` and `cd python && pytest`
-5. Confirm what was verified working in the last hardware test
+2. **Check in** — run `./scripts/agent-checkin.sh` with your agent identity, model, client, and the issue/scope you are working on. Record your Session ID.
+3. State the goal for this session in one sentence
+4. Identify which files you will touch and why
+5. Run existing tests to confirm nothing is broken: `make test` and `cd python && pytest`
+6. Confirm what was verified working in the last hardware test
 
 Do not skip this. Context accumulates across sessions. The person you are working with expects you to already know where things are.
+
+See `WORKFLOW.md` for the full multi-agent protocol — branch naming, commit format, worktree usage, and how to check out at session end.
 
 ---
 

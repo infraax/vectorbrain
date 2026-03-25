@@ -27,6 +27,10 @@ configs/local.json
 data/
 logs/
 
+# Agent worktrees — isolated checkouts for parallel agent sessions
+# The session log (agent-sessions.jsonl) IS tracked; worktree directories are not.
+.worktrees/
+
 # OS
 .DS_Store
 Thumbs.db
