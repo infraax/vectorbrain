@@ -86,11 +86,41 @@ Run `./scripts/agent-status.sh` for live view.
 
 ---
 
+## Issue Map (quick reference)
+
+| # | Type | Title | Status |
+|---|---|---|---|
+| #4 | epic | M1 — Robot Connection | open |
+| #5 | epic | M2 — Command Execution | open |
+| #6 | epic | M3 — Python-Go Bridge | open |
+| #7 | epic | M4 — First Voice Conversation | open |
+| #8 | epic | M5 — WirePod Integration | open |
+| #9 | epic | M6 — Mind Loop | open |
+| #10 | epic | M7 — Memory | open |
+| #11 | epic | M8 — Full Perception + MCP | open |
+| #12 | epic | VectorFriends | open |
+| #13 | epic | Infrastructure / Agent Workflow | open |
+| #14 | task | Add vector-go-sdk to go.mod | **READY — claim this first** |
+| #15 | task | BrainRegistry | ready (needs #14) |
+| #16 | task | ConnectionManager | ready (needs #14, #15) |
+| #17 | task | RESERVE_BEHAVIORS control | ready (needs #16) |
+| #18 | task | EventStream | ready (needs #16) |
+| #19 | task | GET /robots/{esn}/state | ready (needs #15, #18) |
+| #20 | epic | M0 — Scaffolding | **closed — complete** |
+| #21 | task | agent-brief.sh | ready |
+| #22 | task | issue-context.sh | ready |
+| #23 | task | .claude/settings.json hook | ready (needs #21) |
+| #24 | task | GitHub Actions CI | ready |
+
+**First task for any new agent:** claim #14 (add vector-go-sdk) — it unblocks all of M1.
+
+---
+
 ## Session History Summary
 
 | Date | Agent | Scope | Outcome |
 |---|---|---|---|
-| 2026-03-25 | claude-code-web | bootstrap/agent-workflow | Implemented full multi-agent workflow system |
+| 2026-03-25 | claude-code-web | bootstrap/agent-workflow-and-backlog | Multi-agent workflow system + 21 GitHub issues created (epics #4–13, M1 tasks #14–19, infra tasks #21–24) |
 
 ---
 
