@@ -107,6 +107,60 @@ if [[ "$KEEP_WORKTREE" == "false" && -n "$WORKTREE_RAW" && -d "$WORKTREE_RAW" ]]
   fi
 fi
 
+# ── Auto-update MEMORY.md ─────────────────────────────────────────────────────
+# Append this session to the Session History Summary table in MEMORY.md.
+# Keeps the shared memory current without agents having to edit it manually.
+
+MEMORY_FILE="$REPO_ROOT/MEMORY.md"
+
+if [[ -f "$MEMORY_FILE" ]]; then
+  # Read agent name from start record
+  AGENT_NAME="$(grep "\"session_id\":\"${SESSION_ID}\"" "$SESSIONS_FILE" | \
+    grep '"type":"start"' | sed 's/.*"agent":"\([^"]*\)".*/\1/')"
+
+  SCOPE_NAME="$(grep "\"session_id\":\"${SESSION_ID}\"" "$SESSIONS_FILE" | \
+    grep '"type":"start"' | sed 's/.*"scope":"\([^"]*\)".*/\1/')"
+
+  SESSION_DATE="$(echo "$ENDED_AT" | cut -c1-10)"
+  SUMMARY_SHORT="${SUMMARY_CLEAN:0:80}"
+
+  # Build the new history row
+  NEW_ROW="| ${SESSION_DATE} | ${AGENT_NAME:-unknown} | ${SCOPE_NAME:-unknown} | ${SUMMARY_SHORT} |"
+
+  # Update the "Last updated" line and append new row before it
+  if grep -q "^\*Last updated:" "$MEMORY_FILE"; then
+    # Insert the new row before the last "| date |" row pattern or before the "Last updated" line
+    python3 - "$MEMORY_FILE" "$NEW_ROW" "$SESSION_DATE" "$AGENT_NAME" <<'PYEOF'
+import sys, re
+
+filepath  = sys.argv[1]
+new_row   = sys.argv[2]
+date      = sys.argv[3]
+agent     = sys.argv[4]
+
+with open(filepath, 'r') as f:
+    content = f.read()
+
+# Update "Last updated" line
+content = re.sub(
+    r'\*Last updated:.*\*',
+    f'*Last updated: {date} by {agent} / session end*',
+    content
+)
+
+# Insert new row into Session History table (before the "Last updated" line)
+last_updated_idx = content.rfind('\n*Last updated:')
+if last_updated_idx != -1:
+    content = content[:last_updated_idx] + '\n' + new_row + content[last_updated_idx:]
+
+with open(filepath, 'w') as f:
+    f.write(content)
+
+print(f"  MEMORY.md updated.")
+PYEOF
+  fi
+fi
+
 # ── Print completion card ──────────────────────────────────────────────────────
 
 STATUS_SYMBOL="✓"

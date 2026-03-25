@@ -1,0 +1,115 @@
+name: Session Linker
+
+# Reads Agent-Name, Session-Id, and Issue trailers from every commit on any branch.
+# Posts a lightweight activity comment on the referenced GitHub issue so Dexter can
+# watch issues and see real-time agent activity without checking git log.
+#
+# Complements agent-ci.yml (which posts test results) — this posts on every commit,
+# not just test runs, so partial work is also visible.
+
+on:
+  push:
+    branches-ignore:
+      - main          # main commits are merges — already tracked by PR close
+      - 'dependabot/**'
+
+jobs:
+  link:
+    name: Link commit to issue
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout (shallow)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Extract trailers and post to issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+
+            // Read trailers from the triggering commit
+            const getTrailer = (key) => {
+              try {
+                return execSync(
+                  `git log -1 --format='%(trailers:key=${key},valueonly,separator=)'`,
+                  { encoding: 'utf8' }
+                ).trim();
+              } catch { return ''; }
+            };
+
+            const agentName  = getTrailer('Agent-Name');
+            const agentModel = getTrailer('Agent-Model');
+            const sessionId  = getTrailer('Session-Id');
+            const issueRef   = getTrailer('Issue');
+            const commitSha  = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+            const commitMsg  = execSync('git log -1 --format=%s', { encoding: 'utf8' }).trim();
+            const branch     = process.env.GITHUB_REF_NAME || 'unknown';
+
+            // If no Issue trailer, nothing to link
+            if (!issueRef) {
+              console.log('No Issue trailer found — skipping.');
+              return;
+            }
+
+            // Parse issue number
+            const issueMatch = issueRef.match(/\d+/);
+            if (!issueMatch) {
+              console.log(`Cannot parse issue number from: "${issueRef}"`);
+              return;
+            }
+            const issueNumber = parseInt(issueMatch[0]);
+
+            // Verify issue exists and is open
+            let issue;
+            try {
+              const { data } = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo:  context.repo.repo,
+                issue_number: issueNumber,
+              });
+              issue = data;
+            } catch (e) {
+              console.log(`Issue #${issueNumber} not found or inaccessible: ${e.message}`);
+              return;
+            }
+
+            if (issue.state !== 'open') {
+              console.log(`Issue #${issueNumber} is ${issue.state} — skipping comment.`);
+              return;
+            }
+
+            const commitUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/commit/${context.sha}`;
+            const runUrl    = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            // Build compact activity comment
+            const agentLine = agentName
+              ? `**Agent:** \`${agentName}\`${agentModel ? ` / \`${agentModel}\`` : ''}`
+              : '';
+            const sessionLine = sessionId
+              ? `**Session:** \`${sessionId}\``
+              : '';
+
+            const body = `🔨 **Commit landed on \`${branch}\`**
+
+[\`${commitSha}\`](${commitUrl}) — ${commitMsg}
+
+${agentLine}
+${sessionLine}
+**Branch:** \`${branch}\`
+
+<sub>[CI run](${runUrl}) · Automated by session-linker workflow</sub>`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              issue_number: issueNumber,
+              body: body.trim(),
+            });
+
+            console.log(`Linked commit ${commitSha} to issue #${issueNumber}`);

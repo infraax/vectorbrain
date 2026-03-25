@@ -1,0 +1,207 @@
+name: Agent Branch CI
+
+# Runs on every push to agent/* branches.
+# Tests Go and Python, then posts a pass/fail comment on the linked GitHub issue
+# by reading the Agent-Name, Session-Id, and Issue trailers from the commit.
+
+on:
+  push:
+    branches:
+      - 'agent/**'
+
+jobs:
+  test:
+    name: Test (Go + Python)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write      # needed to post comments on issues
+
+    steps:
+      # ── Checkout ────────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2   # need at least 2 commits for trailer extraction
+
+      # ── Extract commit trailers ──────────────────────────────────────────────
+      - name: Extract commit trailers
+        id: trailers
+        run: |
+          AGENT_NAME="$(git log -1 --format='%(trailers:key=Agent-Name,valueonly,separator=)')"
+          AGENT_MODEL="$(git log -1 --format='%(trailers:key=Agent-Model,valueonly,separator=)')"
+          SESSION_ID="$(git log -1 --format='%(trailers:key=Session-Id,valueonly,separator=)')"
+          ISSUE_REF="$(git log -1 --format='%(trailers:key=Issue,valueonly,separator=)')"
+          COMMIT_SHA="$(git rev-parse --short HEAD)"
+          COMMIT_MSG="$(git log -1 --format='%s')"
+
+          echo "agent_name=${AGENT_NAME}"  >> "$GITHUB_OUTPUT"
+          echo "agent_model=${AGENT_MODEL}" >> "$GITHUB_OUTPUT"
+          echo "session_id=${SESSION_ID}"  >> "$GITHUB_OUTPUT"
+          echo "issue_ref=${ISSUE_REF}"    >> "$GITHUB_OUTPUT"
+          echo "commit_sha=${COMMIT_SHA}"  >> "$GITHUB_OUTPUT"
+          echo "commit_msg=${COMMIT_MSG}"  >> "$GITHUB_OUTPUT"
+          echo "branch=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+          echo "Agent:    ${AGENT_NAME:-none}"
+          echo "Model:    ${AGENT_MODEL:-none}"
+          echo "Session:  ${SESSION_ID:-none}"
+          echo "Issue:    ${ISSUE_REF:-none}"
+          echo "Commit:   ${COMMIT_SHA} — ${COMMIT_MSG}"
+
+      # ── Go setup + cache ─────────────────────────────────────────────────────
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false     # we manage our own cache path
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: .gomodcache
+          key: gomod-${{ hashFiles('go.sum') }}
+          restore-keys: gomod-
+
+      # ── Go tests ─────────────────────────────────────────────────────────────
+      - name: Go build
+        id: go_build
+        run: GOMODCACHE=$PWD/.gomodcache go build ./...
+        continue-on-error: true
+
+      - name: Go test
+        id: go_test
+        run: GOMODCACHE=$PWD/.gomodcache go test ./...
+        continue-on-error: true
+
+      # ── Python setup + cache ─────────────────────────────────────────────────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache Python venv
+        uses: actions/cache@v4
+        with:
+          path: python/.venv
+          key: venv-${{ hashFiles('python/requirements.txt') }}
+          restore-keys: venv-
+
+      - name: Install Python deps
+        run: |
+          pip install uv --quiet
+          cd python
+          uv venv --python 3.11
+          uv pip install -r requirements.txt --quiet
+
+      - name: Python test
+        id: python_test
+        run: |
+          cd python
+          .venv/bin/python -m pytest tests/ -v --tb=short 2>&1 | tee /tmp/pytest_output.txt
+          exit ${PIPESTATUS[0]}
+        continue-on-error: true
+
+      # ── Determine overall result ─────────────────────────────────────────────
+      - name: Determine result
+        id: result
+        run: |
+          GO_BUILD="${{ steps.go_build.outcome }}"
+          GO_TEST="${{ steps.go_test.outcome }}"
+          PY_TEST="${{ steps.python_test.outcome }}"
+
+          if [[ "$GO_BUILD" == "success" && "$GO_TEST" == "success" && "$PY_TEST" == "success" ]]; then
+            echo "status=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=fail" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "go_build=${GO_BUILD}"  >> "$GITHUB_OUTPUT"
+          echo "go_test=${GO_TEST}"    >> "$GITHUB_OUTPUT"
+          echo "py_test=${PY_TEST}"    >> "$GITHUB_OUTPUT"
+
+          # Read pytest output for summary
+          PY_SUMMARY="$(tail -5 /tmp/pytest_output.txt 2>/dev/null || echo "(no output)")"
+          echo "py_summary<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$PY_SUMMARY"     >> "$GITHUB_OUTPUT"
+          echo "EOF"             >> "$GITHUB_OUTPUT"
+
+      # ── Post comment on linked issue ──────────────────────────────────────────
+      - name: Post CI result to issue
+        if: steps.trailers.outputs.issue_ref != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status      = "${{ steps.result.outputs.status }}";
+            const goBuild     = "${{ steps.result.outputs.go_build }}";
+            const goTest      = "${{ steps.result.outputs.go_test }}";
+            const pyTest      = "${{ steps.result.outputs.py_test }}";
+            const pySummary   = `${{ steps.result.outputs.py_summary }}`;
+            const agentName   = "${{ steps.trailers.outputs.agent_name }}";
+            const agentModel  = "${{ steps.trailers.outputs.agent_model }}";
+            const sessionId   = "${{ steps.trailers.outputs.session_id }}";
+            const commitSha   = "${{ steps.trailers.outputs.commit_sha }}";
+            const commitMsg   = "${{ steps.trailers.outputs.commit_msg }}";
+            const branch      = "${{ steps.trailers.outputs.branch }}";
+            const issueRef    = "${{ steps.trailers.outputs.issue_ref }}";
+            const runUrl      = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            // Parse issue number — handle "#42" or "42"
+            const issueMatch = issueRef.match(/\d+/);
+            if (!issueMatch) {
+              console.log(`Could not parse issue number from: ${issueRef}`);
+              return;
+            }
+            const issueNumber = parseInt(issueMatch[0]);
+
+            const icon = status === "pass" ? "✅" : "❌";
+            const statusLine = status === "pass"
+              ? "**All checks passed.**"
+              : "**One or more checks failed.** See details below.";
+
+            const checkRow = (name, outcome) => {
+              const icon = outcome === "success" ? "✓" : "✗";
+              return `| ${name} | ${icon} ${outcome} |`;
+            };
+
+            const body = `${icon} CI ${status.toUpperCase()} on \`${branch}\`
+
+${statusLine}
+
+| Check | Result |
+|---|---|
+${checkRow("Go build", goBuild)}
+${checkRow("Go tests", goTest)}
+${checkRow("Python tests", pyTest)}
+| Commit | [\`${commitSha}\`](https://github.com/${context.repo.owner}/${context.repo.repo}/commit/${context.sha}) — ${commitMsg} |
+
+${agentName ? `| Agent | \`${agentName}\` / \`${agentModel}\` |` : ""}
+${sessionId ? `| Session | \`${sessionId}\` |` : ""}
+
+<details><summary>Python test output</summary>
+
+\`\`\`
+${pySummary}
+\`\`\`
+</details>
+
+[Full CI run →](${runUrl})`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: body
+            });
+
+            console.log(`Comment posted on issue #${issueNumber}`);
+
+      # ── Fail the job if any check failed ─────────────────────────────────────
+      - name: Fail if checks failed
+        if: steps.result.outputs.status == 'fail'
+        run: |
+          echo "One or more checks failed:"
+          echo "  Go build:     ${{ steps.result.outputs.go_build }}"
+          echo "  Go tests:     ${{ steps.result.outputs.go_test }}"
+          echo "  Python tests: ${{ steps.result.outputs.py_test }}"
+          exit 1
